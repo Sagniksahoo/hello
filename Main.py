@@ -19,6 +19,8 @@ with open("requirements.json") as file:
 # Function to render templates
 def render_template(template_path, output_path, context):
     try:
+        if not os.path.exists(template_path):
+            raise FileNotFoundError(f"Template file not found: {template_path}")
         with open(template_path) as file:
             template = Template(file.read())
         rendered = template.render(context)
@@ -30,10 +32,9 @@ def render_template(template_path, output_path, context):
 # Map resource types to template files
 resource_templates = {
     "app_service_plan": "app_service_plan.tf.j2",
-    "app_service": "app_service.tf.j2",
+    "web_app": "web_app.tf.j2",  # Assuming a template for web app is also needed
     "function_app": "function_app.tf.j2",
-    "key_vault": "key_vault.tf.j2",
-    "web_app": "web_app.tf.j2"
+    "key_vault": "key_vault.tf.j2"
 }
 
 # Generate Terraform code for all resources in JSON
@@ -42,12 +43,9 @@ if "resources" in data and isinstance(data["resources"], list):
         resource_type = resource.get("type")
         template_file = resource_templates.get(resource_type)
         if template_file:
+            template_path = os.path.join(TEMPLATE_DIR, template_file)
             output_file = os.path.join(OUTPUT_DIR, f"{resource['name']}.tf")
-            render_template(
-                os.path.join(TEMPLATE_DIR, template_file),
-                output_file,
-                resource
-            )
+            render_template(template_path, output_file, resource)
             print(f"Generated: {output_file}")
         else:
             print(f"Warning: No template found for resource type '{resource_type}'")
