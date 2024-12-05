@@ -1,19 +1,15 @@
-def delete_non_repo_files(generated_path, repo_name):
-    """Delete all files and directories from the generated folder except the cloned repository."""
+def delete_generated_files(generated_path):
+    """Delete all files and directories from the generated folder after copying."""
     try:
         for item in os.listdir(generated_path):
             item_path = os.path.join(generated_path, item)
-
-            # Skip the cloned repository folder
-            if item == repo_name:
-                continue
 
             if os.path.isdir(item_path):
                 shutil.rmtree(item_path)
             else:
                 os.remove(item_path)
 
-        print("Non-repository files deleted successfully.")
+        print("Generated files deleted successfully.")
     except Exception as e:
         print(f"Error deleting files: {e}")
 
@@ -27,8 +23,8 @@ def main():
         # Copy files to the repository folder
         copy_generated_files_to_repo("generated", clone_path)
 
-        # Delete non-repo files from the generated folder
-        delete_non_repo_files("generated", selected_repo)
+        # Delete the copied files
+        delete_generated_files("generated")
 
         print(f"Changes are ready to be committed in {clone_path}.")
     else:
