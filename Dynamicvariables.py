@@ -1,78 +1,99 @@
-import jinja2
+def add_variables_to_variables_tf(resource, data):
+    """
+    Append resource-specific variables to the variables.tf file, dynamically setting default values from requirements.json.
+    """
+    variables_path = os.path.join(OUTPUT_DIR, "variables.tf")
+    resource_variables = {
+        "New Azure App Service Plan": [
+            {"name": "app_service_plan_name", "type": "string", "default_key": "ApplicationName"},
+            {"name": "app_service_plan_sku", "type": "string", "default_key": "PricingTier"},
+            {"name": "worker_count", "type": "number", "default_key": "Workercount"},
+            {"name": "max_elastic_worker_count", "type": "number", "default_key": "MaximumElasticWorkerCount"},
+            {"name": "zone_balancing", "type": "string", "default_key": "ZoneBalancing"},
+        ],
+        # Add more resource-specific variable mappings as needed
+    }
 
-def add_variables_to_variables_tf(resource_type):
-    """ Append resource-specific variables to the variables.tf file """
-    
+    resource_type = resource.get("name")
     if resource_type in resource_variables:
-        # Get the variables specific to the resource type
-        variables = resource_variables[resource_type]
+        variables_to_add = resource_variables[resource_type]
+        parameters = resource.get("parameters", {})
         
-        # Path to the variables.tf file
-        variables_tf_path = os.path.join(OUTPUT_DIR, "variables.tf")
-        
-        # Read existing content of variables.tf
-        if os.path.exists(variables_tf_path):
-            with open(variables_tf_path, "r") as file:
-                variables_content = file.read()
-        else:
-            variables_content = ""
-        
-        # Define a Jinja2 template for variables
-        template = jinja2.Template("""
-        {% for var_name, var_details in variables.items() %}
-        variable "{{ var_name }}" {
-            type        = "{{ var_details['type'] }}"
-            description = "{{ var_details['description'] }}"
-        }
-        {% endfor %}
-        """)
-
-        # Render the template with the variables for the resource
-        rendered_variables = template.render(variables=variables)
-
-        # Append to the variables.tf file
-        variables_content += "\n" + rendered_variables
-
-        # Write the updated content back to variables.tf
-        with open(variables_tf_path, "w") as file:
-            file.write(variables_content)
-
-        print(f"Updated {variables_tf_path} with variables for {resource_type}.")
+        with open(variables_path, "a") as f:
+            for variable in variables_to_add:
+                # Extract the default value from the parameters if the key exists
+                default_value = parameters.get(variable.get("default_key"), "")
+                
+                # Write variable with the dynamically fetched default value
+                f.write(f'variable "{variable["name"]}" {{\n')
+                f.write(f'  type = {variable["type"]}\n')
+                if default_value:
+                    # Add default value if it exists
+                    if variable["type"] == "string":
+                        f.write(f'  default = "{default_value}"\n')
+                    else:  # For non-string types like number
+                        f.write(f'  default = {default_value}\n')
+                f.write("}\n\n")
+        print(f"Updated {variables_path} with variables for {resource_type}.")
+    else:
+        print(f"No variables defined for resource type: {resource_type}")
 
 
 
 
+def generate_terraform_code(data):
+    resource_templates = {
+        "New Azure App Service Plan": "app_service_plan.tf.j2",
+        "Azure Windows Web App": "web_app.tf.j2",
+        # Add more templates here
+    }
 
-# Resource-specific variables
-resource_variables = {
-    "New Azure App Service Plan": {
-        "app_service_plan_name": {
-            "type": "string",
-            "description": "The name of the Azure App Service Plan"
-        },
-        "location": {
-            "type": "string",
-            "description": "The location where the Azure App Service Plan will be created"
-        },
-        "sku": {
-            "type": "string",
-            "description": "The SKU of the Azure App Service Plan (e.g., F1, B1, P1v2)"
-        }
-    },
-    # Define variables for other resources here...
-    "Azure Windows Web App": {
-        "web_app_name": {
-            "type": "string",
-            "description": "The name of the Azure Windows Web App"
-        },
-        "app_service_plan_id": {
-            "type": "string",
-            "description": "The ID of the Azure App Service Plan associated with the Web App"
-        },
-        "location": {
-            "type": "string",
-            "description": "The location where the Azure Web App will be deployed"
-        }
-    },
-    # Add other resources here...
-}
+    # Generate Terraform code for resources
+    if "resources" in data and isinstance(data["resources"], list):
+        for resource in data["resources"]:
+            resource_type = resource.get("name")
+            template_file = resource_templates.get(resource_type)
+            if template_file:
+                template_path = os.path.join(TEMPLATE_DIR, template_file)
+                output_file = os.path.join(OUTPUT_DIR, f"{resource['type']}.tf")
+                render_template(template_path, output_file, resource)
+                print(f"Generated: {output_file}")
+                
+                # Add variables dynamically to variables.tf
+                add_variables_to_variables_tf(resource, data)
+            else:
+                print(f"Warning: No template found for resource type {resource_type}")
+
+    # Generate mandatory files
+    mandatory_files = {
+        "main.tf": "./automation-project/templates/main.tf.j2",
+        "variables.tf": "./automation-project/templates/variables.tf.j2",
+        "resource_group.tf": "./automation-project/templates/resource_group.tf.j2",
+        "locals.tf": "./automation-project/templates/locals.tf.j2",
+        "data.tf": "./automation-project/templates/data.tf.j2",
+    }
+
+    for filename, template_path in mandatory_files.items():
+        output_file = os.path.join(OUTPUT_DIR, filename)
+        render_template(template_path, output_file, data)
+        print(f"Generated mandatory file: {output_file}")
+
+    # Generate tfvars files
+    tfvars_files = {
+        "dev-uks.tfvars": "./automation-project/templates/tfvars/dev-uks.tfvars.j2",
+        "prod-uks.tfvars": "./automation-project/templates/tfvars/prod-uks.tfvars.j2",
+        "stag-uks.tfvars": "./automation-project/templates/tfvars/stag-uks.tfvars.j2",
+        "test-uks.tfvars": "./automation-project/templates/tfvars/test-uks.tfvars.j2",
+    }
+
+    for filename, template_path in tfvars_files.items():
+        output_file = os.path.join(VARS_DIR, filename)
+        render_template(template_path, output_file, data)
+        print(f"Generated tfvars file: {output_file}")
+
+    print("Terraform code generation completed with mandatory files and .tfvars.")
+
+
+
+
+
