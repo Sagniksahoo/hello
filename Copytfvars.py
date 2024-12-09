@@ -6,7 +6,7 @@ def copy_generated_files(repo_path):
     Copy generated files to the specified repository path.
     """
     try:
-        # Debugging: Ensure the provided repo_path exists
+        # Ensure repo_path exists
         if not os.path.isdir(repo_path):
             print(f"Repository folder not found: {repo_path}")
             return
@@ -22,13 +22,13 @@ def copy_generated_files(repo_path):
         include_locals = include_locals if include_locals in valid_inputs else "n"
         include_data = include_data if include_data in valid_inputs else "n"
 
-        # Iterate over the generated folder to find files to copy
+        # Define source folder (output files) and check file copying
         output_dir = "generated"
         for root, _, files in os.walk(output_dir):
             for file_name in files:
                 file_path = os.path.join(root, file_name)
 
-                # Skip files if the current directory is the repo itself
+                # Skip directories and the repo directory itself
                 if repo_path in root:
                     continue
 
@@ -37,7 +37,7 @@ def copy_generated_files(repo_path):
                 destination_path = os.path.join(repo_path, relative_path)
 
                 # Skip copying tfvars files if user opted out
-                if root.endswith("tfvars") and include_tfvars != "y":
+                if "tfvars" in root and include_tfvars != "y":
                     print(f"Skipping {file_name} in {root} as per user choice.")
                     continue
 
