@@ -1,6 +1,8 @@
 import os
 import shutil
 
+OUTPUT_DIR = "generated"  # Replace with your actual output directory
+
 def copy_generated_files(repo_path):
     """
     Copy generated files to the cloned repository with options to skip tfvars, locals.tf, and data.tf files.
@@ -24,26 +26,31 @@ def copy_generated_files(repo_path):
             include_data = "n"
 
         # Iterate over files in the OUTPUT_DIR
-        for file_name in os.listdir(OUTPUT_DIR):
-            file_path = os.path.join(OUTPUT_DIR, file_name)
-            destination_path = os.path.join(repo_path, file_name)
+        for root, _, files in os.walk(OUTPUT_DIR):
+            for file_name in files:
+                file_path = os.path.join(root, file_name)
 
-            # Copy files only, skip directories
-            if os.path.isfile(file_path):
+                # Preserve folder structure for tfvars
+                relative_path = os.path.relpath(file_path, OUTPUT_DIR)
+                destination_path = os.path.join(repo_path, relative_path)
+
                 # Skip tfvars files if user opted out
-                if not include_tfvars == "y" and file_name.endswith(".tfvars"):
-                    print(f"Skipping {file_name} as per user choice.")
+                if root.endswith("tfvars") and include_tfvars != "y":
+                    print(f"Skipping {file_name} in {root} as per user choice.")
                     continue
 
                 # Skip locals.tf if user opted out
-                if not include_locals == "y" and file_name == "locals.tf":
+                if file_name == "locals.tf" and include_locals != "y":
                     print(f"Skipping {file_name} as per user choice.")
                     continue
 
                 # Skip data.tf if user opted out
-                if not include_data == "y" and file_name == "data.tf":
+                if file_name == "data.tf" and include_data != "y":
                     print(f"Skipping {file_name} as per user choice.")
                     continue
+
+                # Ensure the destination directory exists
+                os.makedirs(os.path.dirname(destination_path), exist_ok=True)
 
                 # Copy the file
                 shutil.copy(file_path, destination_path)
