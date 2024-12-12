@@ -2,67 +2,53 @@ import re
 
 def merge_locals_tf(destination_path, new_file_path):
     """
-    Merges locals.tf files while handling nested maps/lists and preserving formatting.
+    Merges locals.tf files, ensuring nested structures (maps, lists, etc.) are preserved and merged without duplicates.
     """
     try:
-        # Read the destination and new file contents
-        with open(destination_path, "r") as dest_file:
-            dest_content = dest_file.read()
+        # Read the existing and new locals.tf files
+        with open(destination_path, "r") as existing_file:
+            existing_content = existing_file.read()
 
         with open(new_file_path, "r") as new_file:
             new_content = new_file.read()
 
-        # Extract existing and new locals blocks
+        # Parse the locals block from both files
         locals_pattern = r'locals\s*{(.*?)}'
-        dest_body_match = re.search(locals_pattern, dest_content, re.DOTALL)
+        existing_body_match = re.search(locals_pattern, existing_content, re.DOTALL)
         new_body_match = re.search(locals_pattern, new_content, re.DOTALL)
 
-        dest_body = dest_body_match.group(1).strip() if dest_body_match else ""
+        existing_body = existing_body_match.group(1).strip() if existing_body_match else ""
         new_body = new_body_match.group(1).strip() if new_body_match else ""
 
-        # Helper function to parse locals into a dictionary
+        # Function to parse key-value pairs inside the locals block
         def parse_locals(body):
-            locals_dict = {}
-            current_key = None
-            current_value = []
+            local_dict = {}
+            key_value_pattern = r'(\w+)\s*=\s*(\{.*?\}|.*?|".*?"|\S+)(?=\n\w+\s*=|\n?$)'
+            matches = re.findall(key_value_pattern, body, re.DOTALL)
+            for key, value in matches:
+                local_dict[key.strip()] = value.strip()
+            return local_dict
 
-            for line in body.splitlines():
-                line = line.strip()
-                if "=" in line and not line.startswith("#"):
-                    if current_key:
-                        # Save the previous key-value pair
-                        locals_dict[current_key] = "\n".join(current_value).strip()
-                    # Start a new key
-                    parts = line.split("=", 1)
-                    current_key = parts[0].strip()
-                    current_value = [parts[1].strip()]
-                elif current_key:
-                    # Append to the current key's value
-                    current_value.append(line)
-
-            if current_key:
-                locals_dict[current_key] = "\n".join(current_value).strip()
-            return locals_dict
-
-        dest_locals = parse_locals(dest_body)
+        existing_locals = parse_locals(existing_body)
         new_locals = parse_locals(new_body)
 
-        # Merge locals (new overwrites existing)
-        merged_locals = {**dest_locals, **new_locals}
+        # Merge dictionaries: new values overwrite existing ones
+        merged_locals = {**existing_locals, **new_locals}
 
-        # Reconstruct the merged locals content
-        merged_body = "locals {\n"
+        # Reconstruct the merged locals block
+        merged_body = ""
         for key, value in merged_locals.items():
-            if value.startswith("{") or value.startswith("["):  # Format nested structures
+            if value.startswith("{") or value.startswith("["):  # Nested structures
                 formatted_value = re.sub(r'\n', '\n  ', value.strip())
                 merged_body += f"  {key} = {formatted_value}\n"
-            else:
+            else:  # Simple key-value pairs
                 merged_body += f"  {key} = {value.strip()}\n"
-        merged_body += "}\n"
+
+        merged_content = f"locals {{\n{merged_body}}}\n"
 
         # Write the merged content back to the destination file
-        with open(destination_path, "w") as dest_file:
-            dest_file.write(merged_body)
+        with open(destination_path, "w") as merged_file:
+            merged_file.write(merged_content)
 
         print(f"Successfully merged locals.tf in {destination_path}.")
     except Exception as e:
