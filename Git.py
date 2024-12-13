@@ -19,14 +19,24 @@ def clone_repository(repo_name):
         print(f"Error cloning repository: {e}")
         return None
 
-def github_sync(repo_path):
+def github_sync():
     """
-    Synchronizes the specified repository with GitHub.
+    Synchronizes the repository with GitHub. Dynamically fetches the repository name.
     """
     try:
-        # Validate the repository path
-        if not os.path.exists(repo_path) or not os.path.isdir(os.path.join(repo_path, ".git")):
-            print(f"Error: '{repo_path}' is not a valid Git repository.")
+        # Fetch repository name dynamically using manage_branches
+        repo_name = manage_branches()
+
+        if not repo_name:
+            print("Error: Could not determine repository name.")
+            return
+
+        # Clone the repository
+        print(f"Cloning repository: {repo_name}")
+        repo_path = clone_repository(repo_name)
+
+        if not repo_path:
+            print("Failed to clone repository. Aborting sync.")
             return
 
         # Change to the repository directory
@@ -58,3 +68,11 @@ def github_sync(repo_path):
         print(f"Git command failed: {e}")
     except Exception as e:
         print(f"Error: {e}")
+
+def manage_branches():
+    """
+    Placeholder function to manage and fetch the repository name dynamically.
+    Replace this with your actual logic to determine the repository name.
+    """
+    # Example: Fetch repo name dynamically (modify as needed for your project)
+    return "dynamic_repo_name"  # Replace with actual logic to determine the repository name
